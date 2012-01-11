@@ -12,6 +12,7 @@ import GridDocTransform
 import mimetypes
 from pymongo import Connection
 from gridfs import GridFS
+import os
 
 def connect_to_local_server():
     try:
@@ -36,16 +37,21 @@ class BasicGridFSManipulation(unittest.TestCase):
         self.cursor = create_new_database_or_clobber(self.connection)
         self.gridFS = create_gridfs(self.cursor)
 
-        file_names = ["Much Ado About Nothing by Shakespeare.docx","Sample Presentation Plain Background.pptx","sample-pdf-document-with-ocr.pdf"]
+        file_names = ["Much Ado About Nothing by Shakespeare.doc","Much Ado About Nothing by Shakespeare.docx","Sample Presentation Plain Background.pptx","Sample Presentation Plain Background.ppt","sample-pdf-document-with-ocr.pdf"]
+        self.file_names = file_names
 
         for file_name in file_names:
             mime_type_file_name = mimetypes.guess_type(file_name)[0]
-            with open(file_name) as test_file:
-                oid = self.gridFS.put(test_file, content_type = mime_type_file_name, filename = file_name)
+            f = open(file_name,'rb')
+            self.gridFS.put(f.read(-1), content_type = mime_type_file_name, filename = file_name)
+            f.close()
 
-        print(self.gridFS.list())
 
-    def test_something(self):
+        temp_directory = os.path.abspath("temp")
+        self.file_churner = GridDocTransform.FileChurner(self.gridFS,temp_directory)
+
+    def test_process_word_file(self):
+        self.file_churner.process_file("Much Ado About Nothing by Shakespeare.doc")
         self.assertEqual(True, True)
 
 if __name__ == '__main__':
