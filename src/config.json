@@ -1,0 +1,16 @@
+{
+    "temp_directory" : "C:\\temp\\",
+    "mongo_file_store" : {
+        "server_name" : "localhost",
+        "username" : "",
+        "password" : "",
+        "database_name" : "file_store"
+    },
+    "mongo_data_store" :
+    {
+        "server_name" : "localhost",
+        "username" : "",
+        "password" : "",
+        "database_name" : "data_store"
+    }
+}
