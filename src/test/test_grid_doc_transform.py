@@ -46,13 +46,17 @@ class BasicGridFSManipulation(unittest.TestCase):
             self.gridFS.put(f.read(-1), content_type = mime_type_file_name, filename = file_name)
             f.close()
 
-
         temp_directory = os.path.abspath("temp")
         self.file_churner = GridDocTransform.FileChurner(self.gridFS,temp_directory)
 
     def test_process_word_file(self):
         self.file_churner.process_file("Much Ado About Nothing by Shakespeare.doc")
-        self.assertEqual(True, True)
+    def test_process_pdf_file(self):
+        self.file_churner.process_file("sample-pdf-document-with-ocr.pdf")
+    def test_process_ppt_file(self):
+        self.file_churner.process_file("Sample Presentation Plain Background.pptx")
+        self.file_churner.process_file("Sample Presentation Plain Background.pptx.pdf")
+
 
 if __name__ == '__main__':
 

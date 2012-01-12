@@ -17,9 +17,15 @@ import glob
 
 
 class FileChurner(object):
-    def __init__(self,gridFSobj,temporary_directory):
+    def __init__(self,gridFSobj,temporary_directory,pdf_conversion_types = ["txt","tiff","png"]):
         self.gridFSobj = gridFSobj
         self.temporary_directory = temporary_directory
+        self.pdf_conversion_types = pdf_conversion_types
+
+    def _upload_file(self,file_name,file_name_location):
+        mime_type = mimetypes.guess_type(file_name)[0]
+        with open(file_name_location,"rb") as f:
+            self.gridFSobj.put(f, content_type = mime_type, filename = file_name)
 
     def process_file(self, filename):
         hashed_filename = hashlib.sha1(filename).hexdigest()
@@ -43,9 +49,25 @@ class FileChurner(object):
         content_type = grid_out.content_type
 
         if content_type == 'application/msword' or content_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-            self._convert_to_pdf_and_text_file(filename_to_write)
+            (full_pdf_file_name_written,full_text_file_name_written) = self._convert_from_doc_to_pdf_and_text(filename_to_write)
+            pdf_file_name_written  = os.path.basename(full_pdf_file_name_written)
+            text_file_name_written = os.path.basename(full_text_file_name_written)
+            self._upload_file(pdf_file_name_written, full_pdf_file_name_written)
+            self._upload_file(text_file_name_written, full_text_file_name_written)
 
-    def _convert_to_pdf_and_text_file(self,file_name):
+        elif content_type == 'application/x-mspowerpoint.12' or content_type == 'application/x-mspowerpoint':
+            file_name_written = self._convert_from_ppt_to_pdf(filename_to_write)
+            self._upload_file(os.path.basename(file_name_written),file_name_written)
+
+        elif content_type == "application/pdf":
+            for conversion_type in self.pdf_conversion_types:
+
+                file_name_pairs = self._convert_pdf_to_other_format(filename_to_write, conversion_type)
+                for file_name_pair in file_name_pairs:
+                    self._upload_file(file_name_pair[0], file_name_pair[1])
+
+    #TODO: Cleanup and protect from COM object dysfunction
+    def _convert_from_doc_to_pdf_and_text(self,file_name):
         word = win32.gencache.EnsureDispatch("Word.Application")
         word.Documents.Open(file_name)
         pdf_file_name = file_name + ".pdf"
@@ -53,8 +75,52 @@ class FileChurner(object):
         text_file_name = file_name + ".txt"
         word.ActiveDocument.SaveAs(text_file_name,FileFormat = win32.constants.wdFormatTextLineBreaks)
         word.Quit()
+        return (pdf_file_name, text_file_name)
 
+    def _convert_from_ppt_to_pdf(self, file_name):
+        powerpoint = win32.gencache.EnsureDispatch("PowerPoint.Application")
+        powerpoint.Visible = True
+        presentation = powerpoint.Presentations.Open(file_name)
+        converted_file_name = file_name + ".pdf"
+        powerpoint.Presentations.Application.ActivePresentation.SaveAs(converted_file_name,32)
+        return converted_file_name
 
+    def _convert_pdf_to_other_format(self, file_name, conversion_type):
+        acrobat = win32.gencache.EnsureDispatch("AcroExch.App")
+        pdf = win32.gencache.EnsureDispatch("AcroExch.PDDoc")
+        pdf.Open(file_name)
+        JavaScriptBridge = pdf.GetJSObject()
+
+        if conversion_type == "png":
+            conversion_format = "com.adobe.acrobat.png"
+        elif conversion_type == "tiff":
+            conversion_format = "com.adobe.acrobat.tiff"
+        elif conversion_type == "txt":
+            conversion_format = "com.adobe.acrobat.plain-text"
+
+        converted_file_name =  file_name + "." + conversion_type
+        JavaScriptBridge.saveAs(converted_file_name,conversion_format)
+
+        base_directory_name = os.path.split(converted_file_name)[0]
+
+        if conversion_type != "txt":
+            new_converted_file_names = glob.glob(os.path.join(base_directory_name,"*." + conversion_type))
+            file_result_list = []
+            for new_converted_file_name in new_converted_file_names:
+                file_result_list.append([self._process_acrobat_numbered_file_name(new_converted_file_name), os.path.abspath(new_converted_file_name)])
+        else:
+            file_result_list = [[os.path.split(converted_file_name)[1],os.path.abspath(converted_file_name)]]
+
+        return file_result_list
+
+    def _process_acrobat_numbered_file_name(self, file_name):
+        """Convert Acrobat exported file name 'sample5.pdf_Page_3.png' to 'sample5.pdf.3.png'"""
+
+        cleaned_file_name = os.path.basename(file_name)
+        parsed_file_name = cleaned_file_name.split("_Page_")
+        reformatted_file_name = parsed_file_name[0] + "." + parsed_file_name[1]
+
+        return reformatted_file_name
 
     def process_all_files(self):
         file_names = self.gridFSobj.list()
@@ -125,13 +191,4 @@ In [9]: j.numPages
 Out[9]: 3.0
 In [10]: j.saveAs("C:\\users\\janos\\Desktop\\testpdf\\test.tif","com.adobe.acrobat.tiff")
 
-"""
-
-"""
-Create a temporary directory based on a sha1 hexdigest
-
-import sha
-In [69]: s = sha.new("ddd")
-In [70]: os.path.join("C:\\temp\\",s.hexdigest())
-Out[70]: 'C:\\temp\\9c969ddf454079e3d439973bbab63ea6233e4087'
 """
