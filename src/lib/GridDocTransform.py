@@ -9,10 +9,12 @@ The naming convention of files starting with the original
 
 import pymongo
 import gridfs
-import win32com as win32
+import win32com.client as win32
 import mimetypes
 import os
 import hashlib
+import glob
+
 
 class FileChurner(object):
     def __init__(self,gridFSobj,temporary_directory):
@@ -22,39 +24,58 @@ class FileChurner(object):
     def process_file(self, filename):
         hashed_filename = hashlib.sha1(filename).hexdigest()
         writing_location = os.path.join(self.temporary_directory,hashed_filename)
-#        if os.path.exists(writing_location):
-#            os.rmdir(writing_location)
-#        os.mkdir(writing_location)
+        if os.path.exists(writing_location):
+            success = self._clean_and_remove_directory(writing_location)
+        else:
+            success = 1
+
+        if success:
+            os.mkdir(writing_location)
 
         grid_out = self.gridFSobj.get_last_version(filename)
         filename_to_write = os.path.join(writing_location,filename)
         file_to_write = open(filename_to_write,'wb')
 
-        print(grid_out.filename)
-        print(grid_out.length)
-
         for chunk in grid_out:
             file_to_write.write(chunk)
         file_to_write.close()
 
+        content_type = grid_out.content_type
 
-        #os.rmdir(writing_location)
+        if content_type == 'application/msword' or content_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+            self._convert_to_pdf_and_text_file(filename_to_write)
+
+    def _convert_to_pdf_and_text_file(self,file_name):
+        word = win32.gencache.EnsureDispatch("Word.Application")
+        word.Documents.Open(file_name)
+        pdf_file_name = file_name + ".pdf"
+        word.ActiveDocument.ExportAsFixedFormat(pdf_file_name,17)
+        text_file_name = file_name + ".txt"
+        word.ActiveDocument.SaveAs(text_file_name,FileFormat = win32.constants.wdFormatTextLineBreaks)
+        word.Quit()
+
+
 
     def process_all_files(self):
         file_names = self.gridFSobj.list()
         for filename in file_names:
             self.process_file(filename)
 
+    def _clean_and_remove_directory(self, directory_name):
+        files_to_delete = glob.glob(os.path.join(directory_name,"*"))
+        for file_to_delete in files_to_delete:
+            os.remove(file_to_delete)
+
+        try:
+            os.rmdir(directory_name)
+            return 1
+        except WindowsError:
+            return 0
 
 
 
 
-
-
-
-
-
-"""
+    """
 Example in iPython opening a doc file and saving it as a pdf file.
 
 For Office 2007 you must have the following library installed to save a file in a fixed format like XPS or PDF
