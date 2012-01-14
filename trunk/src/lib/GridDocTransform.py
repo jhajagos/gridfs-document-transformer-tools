@@ -14,13 +14,14 @@ import mimetypes
 import os
 import hashlib
 import glob
-
+from PIL import Image
 
 class FileChurner(object):
     def __init__(self,gridFSobj,temporary_directory,pdf_conversion_types = ["txt","tiff","png"]):
         self.gridFSobj = gridFSobj
         self.temporary_directory = temporary_directory
         self.pdf_conversion_types = pdf_conversion_types
+        self.conversion_sizes = {"large" : 1000, "medium" : 750, "small" : 500, "tiny" : 250}
 
     def _upload_file(self,file_name,file_name_location):
         mime_type = mimetypes.guess_type(file_name)[0]
@@ -66,6 +67,13 @@ class FileChurner(object):
                 for file_name_pair in file_name_pairs:
                     self._upload_file(file_name_pair[0], file_name_pair[1])
 
+        elif content_type == "image/x-png":
+            for conversion_size_name in self.conversion_sizes.keys():
+                conversion_size = self.conversion_sizes[conversion_size_name]
+                new_root_file_name = self._down_sample_image(filename_to_write, conversion_size, conversion_size_name)
+                self._upload_file(os.path.basename(new_root_file_name),new_root_file_name)
+
+
     #TODO: Cleanup and protect from COM object dysfunction
     def _convert_from_doc_to_pdf_and_text(self,file_name):
         word = win32.gencache.EnsureDispatch("Word.Application")
@@ -83,6 +91,7 @@ class FileChurner(object):
         presentation = powerpoint.Presentations.Open(file_name)
         converted_file_name = file_name + ".pdf"
         powerpoint.Presentations.Application.ActivePresentation.SaveAs(converted_file_name,32)
+        powerpoint.Quit()
         return converted_file_name
 
     def _convert_pdf_to_other_format(self, file_name, conversion_type):
@@ -113,6 +122,23 @@ class FileChurner(object):
 
         return file_result_list
 
+    def _down_sample_image(self, image_file_name, largest_size_in_pixels,image_suffix,image_type="PNG"):
+        image = Image.open(image_file_name)
+        (width,height) = image.size
+
+        if width > height:
+            new_width = int(largest_size_in_pixels)
+            reduction_factor = (largest_size_in_pixels * 1.0) / (width)
+            new_height = int(reduction_factor * height)
+        else:
+            new_height = int(largest_size_in_pixels)
+            reduction_factor = (largest_size_in_pixels * 1.0) / (height)
+            new_width = int(reduction_factor * width)
+        new_image = image.resize((new_width,new_height), Image.ANTIALIAS)
+        new_image_name = image_file_name + "." + image_suffix + "." + image_type.lower()
+        new_image.save(new_image_name, image_type)
+        return new_image_name
+
     def _process_acrobat_numbered_file_name(self, file_name):
         """Convert Acrobat exported file name 'sample5.pdf_Page_3.png' to 'sample5.pdf.3.png'"""
 
@@ -137,8 +163,6 @@ class FileChurner(object):
             return 1
         except WindowsError:
             return 0
-
-
 
 
     """
@@ -191,4 +215,14 @@ In [9]: j.numPages
 Out[9]: 3.0
 In [10]: j.saveAs("C:\\users\\janos\\Desktop\\testpdf\\test.tif","com.adobe.acrobat.tiff")
 
+"""
+
+"""
+from PIL import Image
+
+im = Image.open("C:\\Users\\janos\\workspace\\grid-doc-transform\\src\\test\\temp\\03bad81d968a6c5d96f0380d3fcf6ddbd709824c\\journal.pone.0029797.pdf_P
+age_02.png")
+im.resize((500,850), Image.ANTIALIAS)
+im.save("C:\\Users\\janos\\workspace\\grid-doc-transform\\src\\test\\temp\\03bad81d968a6c5d96f0380d3fcf6ddbd709824c\\journal.pone.0029797.pdf_Page_02.s
+.1.png")
 """
