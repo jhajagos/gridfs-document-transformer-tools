@@ -4,7 +4,7 @@
         "server_name" : "localhost",
         "username" : "",
         "password" : "",
-        "database_name" : "file_store"
+        "database_name" : "test_grid_doc_transform"
     },
     "mongo_data_store" :
     {
