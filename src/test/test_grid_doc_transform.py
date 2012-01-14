@@ -37,7 +37,7 @@ class BasicGridFSManipulation(unittest.TestCase):
         self.cursor = create_new_database_or_clobber(self.connection)
         self.gridFS = create_gridfs(self.cursor)
 
-        file_names = ["Much Ado About Nothing by Shakespeare.doc","Much Ado About Nothing by Shakespeare.docx","Sample Presentation Plain Background.pptx","Sample Presentation Plain Background.ppt","sample-pdf-document-with-ocr.pdf"]
+        file_names = ["Much Ado About Nothing by Shakespeare.doc","Much Ado About Nothing by Shakespeare.docx","Sample Presentation Plain Background.pptx","Sample Presentation Plain Background.ppt","sample-pdf-document-with-ocr.pdf","6525_Page_4.png"]
         self.file_names = file_names
 
         for file_name in file_names:
@@ -55,7 +55,8 @@ class BasicGridFSManipulation(unittest.TestCase):
         self.file_churner.process_file("sample-pdf-document-with-ocr.pdf")
     def test_process_ppt_file(self):
         self.file_churner.process_file("Sample Presentation Plain Background.pptx")
-        self.file_churner.process_file("Sample Presentation Plain Background.pptx.pdf")
+    def test_process_png_file(self):
+        self.file_churner.process_file("6525_Page_4.png")
 
 
 if __name__ == '__main__':
