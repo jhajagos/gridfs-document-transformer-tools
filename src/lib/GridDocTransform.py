@@ -222,7 +222,7 @@ from PIL import Image
 
 im = Image.open("C:\\Users\\janos\\workspace\\grid-doc-transform\\src\\test\\temp\\03bad81d968a6c5d96f0380d3fcf6ddbd709824c\\journal.pone.0029797.pdf_P
 age_02.png")
-im.resize((500,850), Image.ANTIALIAS)
+im = im.resize((500,850), Image.ANTIALIAS)
 im.save("C:\\Users\\janos\\workspace\\grid-doc-transform\\src\\test\\temp\\03bad81d968a6c5d96f0380d3fcf6ddbd709824c\\journal.pone.0029797.pdf_Page_02.s
 .1.png")
 """
