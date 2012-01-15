@@ -28,7 +28,7 @@ def application(environ, start_response):
     ]
 
     start_response("200 OK", response_headers)
-    return [grid_out_obj.read(),]
+    return grid_out_obj #GridFs is an iterable object
 
 
 if __name__ == "__main__":
