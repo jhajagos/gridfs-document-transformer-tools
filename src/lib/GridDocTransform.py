@@ -14,7 +14,9 @@ import mimetypes
 import os
 import hashlib
 import glob
+import pprint
 from PIL import Image
+import json
 
 class FileChurner(object):
     def __init__(self,gridFSobj,temporary_directory,pdf_conversion_types = ["txt","tiff","png"]):
@@ -28,14 +30,72 @@ class FileChurner(object):
         with open(file_name_location,"rb") as f:
             self.gridFSobj.put(f, content_type = mime_type, filename = file_name)
 
+    def process_document_to_endpoint(self,filename):
+        transformation_dictionary = {"original_filename" : filename}
+        converted_type =  mimetypes.guess_type(filename)
+        if converted_type in ['application/msword',"application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/x-mspowerpoint.12",'application/x-mspowerpoint']:
+            filenames_written_1 = self.process_file(file_name)
+        else:
+            filenames_written_1 = [filename]
+
+        for filename_written_1 in filenames_written_1:
+            if filename_written_1[:-3] == "pdf":
+                transformation_dictionary["pdf_filename"] = filename_1_written
+            if filename_written_1[:-3] == "txt":
+                transformation_dictionary["txt_filename"] = filename_1_written
+            filenames_written_2 = self.process_File("pdf_filename")
+            for filename_written_2 in filenames_written_2:
+                filenames_written_3 = self.process_file(filename_written_2)
+                for filename_written_3 in filenames_written_3:
+                    if filename_written_3[:-3] == "png":
+                        if "png_originals" in transformation_dictionary:
+                            transformation_dictionary["png_originals"].append(filename_written3)
+                        else:
+                            transformation_dictionary["png_originals"] = [filename_written3]
+                    if "png_originals" in transformation_dictionary:
+                        transformation_dictionary["png_originals"].sort()
+                    if filename_written_3[:-4] == "tiff":
+                        if "tiff_originals" in transformation_dictionary:
+                            transformation_dictionary["tiff_originals"].append(filename_written3)
+                        else:
+                            transformation_dictionary["tiff_originals"] = [filename_written3]
+                    if "tiff_originals" in transformation_dictionary:
+                        transformation_dictionary["tiff_originals"].sort()
+
+                    if filename_written_3[:-3] == "txt":
+                        if "pdf_texts" in transformation_dictionary:
+                            transformation_dictionary["pdf_texts"] = filename_written_3
+                        else:
+                            if "txt_filename" not in transformation_dictionary:
+                                transformation_dictionary["txt_filename"] = filename_written_3
+                            transformation_dictionary["pdf_texts"] = [filename_written_3]
+
+                    if "png_originals" in transformation_dictionary:
+                        i = 0
+                        for filename_written_4 in transformation_dictionary["png_originals"]:
+                            filenames_written_5 = self.process_file(filename_written_4)
+                            png_key_name = "png_" + str(i)
+                            if png_key_name in transformation_dictionary:
+                                transformation_dictionary[png_key_name].append(filename_written_4)
+                            else:
+                                transformation_dictionary[png_key_name] = [filename_written_4]
+                            i = i + 1
+        pprint.pprint(transformation_dictionary)
+        json.dumps()
+
+        return transformation_dictionary
+
+
+
+
     def process_file(self, filename):
+        files_created = []
         hashed_filename = hashlib.sha1(filename).hexdigest()
         writing_location = os.path.join(self.temporary_directory,hashed_filename)
         if os.path.exists(writing_location):
             success = self._clean_and_remove_directory(writing_location)
         else:
             success = 1
-
         if success:
             os.mkdir(writing_location)
 
@@ -55,23 +115,32 @@ class FileChurner(object):
             text_file_name_written = os.path.basename(full_text_file_name_written)
             self._upload_file(pdf_file_name_written, full_pdf_file_name_written)
             self._upload_file(text_file_name_written, full_text_file_name_written)
+            files_created.append(text_file_name_written)
 
         elif content_type == 'application/x-mspowerpoint.12' or content_type == 'application/x-mspowerpoint':
             file_name_written = self._convert_from_ppt_to_pdf(filename_to_write)
-            self._upload_file(os.path.basename(file_name_written),file_name_written)
+            os.path.basename(file_name_written)
+            pdf_file_name_written = os.path.basename(file_name_written)
+            self._upload_file(pdf_file_name_written,file_name_written)
+            files_created.append(pdf_file_name_written)
 
         elif content_type == "application/pdf":
             for conversion_type in self.pdf_conversion_types:
 
                 file_name_pairs = self._convert_pdf_to_other_format(filename_to_write, conversion_type)
                 for file_name_pair in file_name_pairs:
-                    self._upload_file(file_name_pair[0], file_name_pair[1])
+                    converted_file_name_written = file_name_pair[0]
+                    self._upload_file(converted_file_name_written, file_name_pair[1])
+                    files_created.append(converted_file_name_written)
 
         elif content_type == "image/x-png":
             for conversion_size_name in self.conversion_sizes.keys():
                 conversion_size = self.conversion_sizes[conversion_size_name]
                 new_root_file_name = self._down_sample_image(filename_to_write, conversion_size, conversion_size_name)
-                self._upload_file(os.path.basename(new_root_file_name),new_root_file_name)
+                converted_file_name_written = os.path.basename(new_root_file_name)
+                self._upload_file(converted_file_name_written,new_root_file_name)
+                files_created.append(converted_file_name_written)
+        return converted_file_name_written
 
 
     #TODO: Cleanup and protect from COM object dysfunction
@@ -95,6 +164,7 @@ class FileChurner(object):
         return converted_file_name
 
     def _convert_pdf_to_other_format(self, file_name, conversion_type):
+        """Can convert a PDF file to png, tiff, and text formats"""
         acrobat = win32.gencache.EnsureDispatch("AcroExch.App")
         pdf = win32.gencache.EnsureDispatch("AcroExch.PDDoc")
         pdf.Open(file_name)
