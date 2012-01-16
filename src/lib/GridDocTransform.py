@@ -32,66 +32,71 @@ class FileChurner(object):
 
     def process_document_to_endpoint(self,filename):
         transformation_dictionary = {"original_filename" : filename}
-        converted_type =  mimetypes.guess_type(filename)
+        converted_type =  mimetypes.guess_type(filename)[0]
         if converted_type in ['application/msword',"application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/x-mspowerpoint.12",'application/x-mspowerpoint']:
-            filenames_written_1 = self.process_file(file_name)
+            filenames_written_1 = self.process_file(filename)
         else:
             filenames_written_1 = [filename]
 
+
         for filename_written_1 in filenames_written_1:
-            if filename_written_1[:-3] == "pdf":
-                transformation_dictionary["pdf_filename"] = filename_1_written
-            if filename_written_1[:-3] == "txt":
-                transformation_dictionary["txt_filename"] = filename_1_written
-            filenames_written_2 = self.process_File("pdf_filename")
+            if filename_written_1[-3:] == "pdf":
+                transformation_dictionary["pdf_filename"] = filename_written_1
+            if filename_written_1[-3:] == "txt":
+                transformation_dictionary["txt_filename"] = filename_written_1
+
+            filenames_written_2 = self.process_file(transformation_dictionary["pdf_filename"])
             for filename_written_2 in filenames_written_2:
-                filenames_written_3 = self.process_file(filename_written_2)
-                for filename_written_3 in filenames_written_3:
-                    if filename_written_3[:-3] == "png":
-                        if "png_originals" in transformation_dictionary:
-                            transformation_dictionary["png_originals"].append(filename_written3)
-                        else:
-                            transformation_dictionary["png_originals"] = [filename_written3]
+                if filename_written_2[-3:] == "png":
                     if "png_originals" in transformation_dictionary:
-                        transformation_dictionary["png_originals"].sort()
-                    if filename_written_3[:-4] == "tiff":
-                        if "tiff_originals" in transformation_dictionary:
-                            transformation_dictionary["tiff_originals"].append(filename_written3)
-                        else:
-                            transformation_dictionary["tiff_originals"] = [filename_written3]
+                        transformation_dictionary["png_originals"].append(filename_written_2)
+                    else:
+                        transformation_dictionary["png_originals"] = [filename_written_2]
+                if "png_originals" in transformation_dictionary:
+                    transformation_dictionary["png_originals"].sort()
+                if filename_written_2[-4:] == "tiff":
                     if "tiff_originals" in transformation_dictionary:
-                        transformation_dictionary["tiff_originals"].sort()
+                        transformation_dictionary["tiff_originals"].append(filename_written_2)
+                    else:
+                        transformation_dictionary["tiff_originals"] = [filename_written_2]
+                if "tiff_originals" in transformation_dictionary:
+                    transformation_dictionary["tiff_originals"].sort()
 
-                    if filename_written_3[:-3] == "txt":
-                        if "pdf_texts" in transformation_dictionary:
-                            transformation_dictionary["pdf_texts"] = filename_written_3
-                        else:
-                            if "txt_filename" not in transformation_dictionary:
-                                transformation_dictionary["txt_filename"] = filename_written_3
-                            transformation_dictionary["pdf_texts"] = [filename_written_3]
+                if filename_written_2[:-3] == "txt":
+                    if "pdf_texts" in transformation_dictionary:
+                        transformation_dictionary["pdf_texts"] = filename_written_2
+                    else:
+                        if "txt_filename" not in transformation_dictionary:
+                            transformation_dictionary["txt_filename"] = filename_written_2
+                        transformation_dictionary["pdf_texts"] = [filename_written_2]
 
-                    if "png_originals" in transformation_dictionary:
-                        i = 0
-                        for filename_written_4 in transformation_dictionary["png_originals"]:
-                            filenames_written_5 = self.process_file(filename_written_4)
-                            png_key_name = "png_" + str(i)
-                            if png_key_name in transformation_dictionary:
-                                transformation_dictionary[png_key_name].append(filename_written_4)
-                            else:
-                                transformation_dictionary[png_key_name] = [filename_written_4]
-                            i = i + 1
-        pprint.pprint(transformation_dictionary)
-        json.dumps()
-
+        if "png_originals" in transformation_dictionary:
+            for filename_png_original in transformation_dictionary["png_originals"]:
+                filenames_png_downsize = self.process_file(filename_png_original)
+                for i in range(len(filenames_png_downsize)):
+                    png_key_name = "png_" + str(i)
+                    if png_key_name in transformation_dictionary:
+                        transformation_dictionary[png_key_name].append(filenames_png_downsize[i])
+                    else:
+                        transformation_dictionary[png_key_name] = [filenames_png_downsize[i]]
+        writing_location = self._generate_writing_location(filename)
+        json_file_name = filename + ".json"
+        full_json_file_name = os.path.join(writing_location,json_file_name)
+        f = open(full_json_file_name,"w")
+        transformation_dictionary_json = json.dumps(transformation_dictionary)
+        f.write(transformation_dictionary_json)
+        f.close()
+        self._upload_file(json_file_name,full_json_file_name)
         return transformation_dictionary
 
-
-
+    def _generate_writing_location(self,filename):
+        hashed_filename = hashlib.sha1(filename).hexdigest()
+        writing_location = os.path.join(self.temporary_directory,hashed_filename)
+        return writing_location
 
     def process_file(self, filename):
         files_created = []
-        hashed_filename = hashlib.sha1(filename).hexdigest()
-        writing_location = os.path.join(self.temporary_directory,hashed_filename)
+        writing_location = self._generate_writing_location(filename)
         if os.path.exists(writing_location):
             success = self._clean_and_remove_directory(writing_location)
         else:
@@ -106,7 +111,6 @@ class FileChurner(object):
         for chunk in grid_out:
             file_to_write.write(chunk)
         file_to_write.close()
-
         content_type = grid_out.content_type
 
         if content_type == 'application/msword' or content_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
@@ -116,6 +120,7 @@ class FileChurner(object):
             self._upload_file(pdf_file_name_written, full_pdf_file_name_written)
             self._upload_file(text_file_name_written, full_text_file_name_written)
             files_created.append(text_file_name_written)
+            files_created.append(pdf_file_name_written)
 
         elif content_type == 'application/x-mspowerpoint.12' or content_type == 'application/x-mspowerpoint':
             file_name_written = self._convert_from_ppt_to_pdf(filename_to_write)
@@ -140,7 +145,7 @@ class FileChurner(object):
                 converted_file_name_written = os.path.basename(new_root_file_name)
                 self._upload_file(converted_file_name_written,new_root_file_name)
                 files_created.append(converted_file_name_written)
-        return converted_file_name_written
+        return files_created
 
 
     #TODO: Cleanup and protect from COM object dysfunction
