@@ -5,12 +5,5 @@
         "username" : "",
         "password" : "",
         "database_name" : "test_grid_doc_transform"
-    },
-    "mongo_data_store" :
-    {
-        "server_name" : "localhost",
-        "username" : "",
-        "password" : "",
-        "database_name" : "data_store"
     }
 }

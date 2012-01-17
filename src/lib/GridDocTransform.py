@@ -18,6 +18,7 @@ import pprint
 from PIL import Image
 import json
 
+
 class FileChurner(object):
     def __init__(self,gridFSobj,temporary_directory,pdf_conversion_types = ["txt","tiff","png"]):
         self.gridFSobj = gridFSobj
@@ -69,12 +70,12 @@ class FileChurner(object):
                         if "txt_filename" not in transformation_dictionary:
                             transformation_dictionary["txt_filename"] = filename_written_2
                         transformation_dictionary["pdf_texts"] = [filename_written_2]
-
+        i_2_str_dict = {0: "large", 1: "medium", 2 : "small", 3: "tiny"}
         if "png_originals" in transformation_dictionary:
             for filename_png_original in transformation_dictionary["png_originals"]:
                 filenames_png_downsize = self.process_file(filename_png_original)
                 for i in range(len(filenames_png_downsize)):
-                    png_key_name = "png_" + str(i)
+                    png_key_name = "png_" + i_2_str_dict[i]
                     if png_key_name in transformation_dictionary:
                         transformation_dictionary[png_key_name].append(filenames_png_downsize[i])
                     else:
