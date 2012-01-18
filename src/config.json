@@ -1,5 +1,5 @@
 {
-    "temp_directory" : "C:\\temp\\",
+    "temporary_directory" : "C:\\temp\\",
     "mongo_file_store" : {
         "server_name" : "localhost",
         "username" : "",

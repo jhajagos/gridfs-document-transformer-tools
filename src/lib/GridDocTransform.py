@@ -39,37 +39,38 @@ class FileChurner(object):
         else:
             filenames_written_1 = [filename]
 
-
         for filename_written_1 in filenames_written_1:
             if filename_written_1[-3:] == "pdf":
                 transformation_dictionary["pdf_filename"] = filename_written_1
             if filename_written_1[-3:] == "txt":
                 transformation_dictionary["txt_filename"] = filename_written_1
 
-            filenames_written_2 = self.process_file(transformation_dictionary["pdf_filename"])
-            for filename_written_2 in filenames_written_2:
-                if filename_written_2[-3:] == "png":
+            if "pdf_filename" in transformation_dictionary:
+                filenames_written_2 = self.process_file(transformation_dictionary["pdf_filename"])
+                for filename_written_2 in filenames_written_2:
+                    if filename_written_2[-3:] == "png":
+                        if "png_originals" in transformation_dictionary:
+                            transformation_dictionary["png_originals"].append(filename_written_2)
+                        else:
+                            transformation_dictionary["png_originals"] = [filename_written_2]
                     if "png_originals" in transformation_dictionary:
-                        transformation_dictionary["png_originals"].append(filename_written_2)
-                    else:
-                        transformation_dictionary["png_originals"] = [filename_written_2]
-                if "png_originals" in transformation_dictionary:
-                    transformation_dictionary["png_originals"].sort()
-                if filename_written_2[-4:] == "tiff":
+                        transformation_dictionary["png_originals"].sort()
+                    if filename_written_2[-4:] == "tiff":
+                        if "tiff_originals" in transformation_dictionary:
+                            transformation_dictionary["tiff_originals"].append(filename_written_2)
+                        else:
+                            transformation_dictionary["tiff_originals"] = [filename_written_2]
                     if "tiff_originals" in transformation_dictionary:
-                        transformation_dictionary["tiff_originals"].append(filename_written_2)
-                    else:
-                        transformation_dictionary["tiff_originals"] = [filename_written_2]
-                if "tiff_originals" in transformation_dictionary:
-                    transformation_dictionary["tiff_originals"].sort()
+                        transformation_dictionary["tiff_originals"].sort()
 
-                if filename_written_2[:-3] == "txt":
-                    if "pdf_texts" in transformation_dictionary:
-                        transformation_dictionary["pdf_texts"] = filename_written_2
-                    else:
-                        if "txt_filename" not in transformation_dictionary:
-                            transformation_dictionary["txt_filename"] = filename_written_2
-                        transformation_dictionary["pdf_texts"] = [filename_written_2]
+                    if filename_written_2[:-3] == "txt":
+                        if "pdf_texts" in transformation_dictionary:
+                            transformation_dictionary["pdf_texts"] = filename_written_2
+                        else:
+                            if "txt_filename" not in transformation_dictionary:
+                                transformation_dictionary["txt_filename"] = filename_written_2
+                            transformation_dictionary["pdf_texts"] = [filename_written_2]
+
         i_2_str_dict = {0: "large", 1: "medium", 2 : "small", 3: "tiny"}
         if "png_originals" in transformation_dictionary:
             for filename_png_original in transformation_dictionary["png_originals"]:
