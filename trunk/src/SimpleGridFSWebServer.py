@@ -1,5 +1,4 @@
 from gridfs.errors import NoFile
-
 __author__ = 'janos'
 
 import gridfs
@@ -117,17 +116,17 @@ def in_focus_html(current_position, image_file_medium, image_file_large,image_fi
     html_text = '<div><span>Formats: <a href="../%s">Original format</a> | <a href="../%s">PDF</a> | <a href="/light-box-z/%s">Thumbnails</a>| <a href = "../%s">Image </a> | <a href="../%s">Text</a></span></div>' % (original_file_name, pdf_file_name, original_file_name, image_file_name, text_file_name)
 
     html_text += '<div><span>Navigation: '
-    if previous:
-        html_text += '<a href="%s">Previous</a>' % previous
-    else:
-        html_text += "Previous"
     if next:
-        html_text += ' | <a href="%s">Next</a>' % next
+        html_text += '<a href="%s">Next</a>' % next
     else:
-        html_text += " | Next"
+        html_text += "Next"
+    if previous:
+        html_text += ' | <a href="%s">Previous</a>' % previous
+    else:
+        html_text += " | Previous"
     first = "?part=0"
     last = "?part=%s" % (int(number_of_parts) - 1)
-    html_text += '   |||   <a href="%s">First</a> | <a href="%s">Last</a>' % (first,last)
+    html_text += '   |||   <a href="%s">First</a> | <a href="%s">Last</a> |' % (first,last)
 
     html_text += '<div><span><a href="../%s"><img src="../%s"></a></span></div>' % (image_file_name, image_file_large)
 
