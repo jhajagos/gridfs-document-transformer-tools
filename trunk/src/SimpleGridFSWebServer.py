@@ -2,16 +2,14 @@ from gridfs.errors import NoFile
 
 __author__ = 'janos'
 
-
 import gridfs
 import pymongo
 import json
 import os
-import pprint
+import urlparse
 
 def application(environ, start_response):
 
-    #environ["CONFIGURATION_FILE"]
     configuration_file = "config.json"
     f = open(configuration_file,'r')
     configuration = json.load(f)
@@ -20,20 +18,25 @@ def application(environ, start_response):
     grid_db = grid_file_connection[configuration["mongo_file_store"]["database_name"]]
     gfs = gridfs.GridFS(grid_db)
 
+    query_dictionary = urlparse.parse_qs(environ["QUERY_STRING"])
     uri = environ["PATH_INFO"]
     light_box_signal = "light-box-z"
-    focus_z_signal = "focus-signal-z"
+    focus_signal = "in-focus-z"
     light_box_on = 0
-    focus = 0
+    focus_on = 0
     file_serve = 0
+
     if uri[1:len(light_box_signal) + 1] == light_box_signal:
         filename = uri[len(light_box_signal)+2:] + ".json"
         light_box_on = 1
-    elif uri[1:len(focus_z_signal)] == focus_z_signal:
-        focus = 1
+    elif uri[1:len(focus_signal) + 1] == focus_signal:
+        focus_on = 1
+        filename = uri[len(focus_signal)+2:] + ".json"
     else:
         filename = uri[1:]
         file_serve = 1
+
+    print(filename)
 
     try:
         grid_out_obj = gfs.get_last_version(filename)
@@ -55,15 +58,24 @@ def application(environ, start_response):
         content = ""
         response_headers = [("Content-type", 'text/html')]
 
-
         start_response("200 OK", response_headers)
         if light_box_on:
             content = html_header("Light box on for '" + file_information["original_filename"] + "'")
             content += "<body>"
-            content += light_box_html(file_information["png_tiny"],file_information["png_large"])
+            content += light_box_html(file_information["png_tiny"],file_information["original_filename"])
             content += "</body></html>"
-        elif focus:
-            pass
+        elif focus_on:
+            content += html_header("Focus on '" + file_information["original_filename"] + "'")
+
+            if "part" in query_dictionary:
+                part = int(query_dictionary["part"][0])
+            else:
+                part = 0
+
+            content = html_header("Focus on for '" + file_information["original_filename"] + "'")
+            content += "<body>"
+            content += in_focus_html(part, file_information["png_medium"][part], file_information["png_large"][part],file_information["png_originals"][part], file_information["original_filename"], file_information["pdf_filename"], file_information["txt_filename"], len(file_information["png_originals"]))
+            content += "</body></html>"
 
         return [str(content),]
 
@@ -85,7 +97,45 @@ def open_body():
 def close_body():
     return "</body>"
 
-def light_box_html(image_files_list_thumb, image_files_list_full, n=3):
+def in_focus_html(current_position, image_file_medium, image_file_large,image_file_name,original_file_name, pdf_file_name, text_file_name, number_of_parts):
+    state = "middle"
+    if current_position == 0:
+        state = "start"
+    elif current_position == number_of_parts - 1:
+        state = "end"
+
+    if state ==  "end":
+        next = None
+    else:
+        next = "?part=%s" % (int(current_position) + 1)
+
+    if state == "start":
+        previous = None
+    else:
+        previous = "?part=%s" %  (int(current_position) - 1)
+
+    html_text = '<div><span>Formats: <a href="../%s">Original format</a> | <a href="../%s">PDF</a> | <a href="/light-box-z/%s">Thumbnails</a>| <a href = "../%s">Image </a> | <a href="../%s">Text</a></span></div>' % (original_file_name, pdf_file_name, original_file_name, image_file_name, text_file_name)
+
+    html_text += '<div><span>Navigation: '
+    if previous:
+        html_text += '<a href="%s">Previous</a>' % previous
+    else:
+        html_text += "Previous"
+    if next:
+        html_text += ' | <a href="%s">Next</a>' % next
+    else:
+        html_text += " | Next"
+    first = "?part=0"
+    last = "?part=%s" % (int(number_of_parts) - 1)
+    html_text += '   |||   <a href="%s">First</a> | <a href="%s">Last</a>' % (first,last)
+
+    html_text += '<div><span><a href="../%s"><img src="../%s"></a></span></div>' % (image_file_name, image_file_large)
+
+
+
+    return html_text
+
+def light_box_html(image_files_list_thumb, original_file_name, n=3):
     i = 0
     html_text = ""
     for i in range(len(image_files_list_thumb)):
@@ -96,7 +146,7 @@ def light_box_html(image_files_list_thumb, image_files_list_full, n=3):
                 html_text += "</div>\n"
             else:
                 html_text += "</div>\n<div>"
-        html_text += '<span><a href="../%s"><img src="../%s"/></a></span>' % (image_files_list_full[i],image_files_list_thumb[i])
+        html_text += '<span><a href="/in-focus-z/%s?part=%s"><img src="../%s"/></a></span>' % (original_file_name,i,image_files_list_thumb[i])
 
     if i % n != 0:
         html_text += "</div>\n"
