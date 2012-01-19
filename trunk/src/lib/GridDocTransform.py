@@ -63,13 +63,10 @@ class FileChurner(object):
                     if "tiff_originals" in transformation_dictionary:
                         transformation_dictionary["tiff_originals"].sort()
 
-                    if filename_written_2[:-3] == "txt":
-                        if "txt_filename" in transformation_dictionary:
-                            transformation_dictionary["pdf_texts"] = filename_written_2
-                        else:
-                            if "txt_filename" not in transformation_dictionary:
-                                transformation_dictionary["txt_filename"] = filename_written_2
-                            transformation_dictionary["pdf_texts"] = [filename_written_2]
+                    if filename_written_2[-3:] == "txt":
+                        if "txt_filename" not in transformation_dictionary:
+                            transformation_dictionary["txt_filename"] = filename_written_2
+                        transformation_dictionary["pdf_texts"] = filename_written_2
 
         i_2_str_dict = {0: "large", 1: "medium", 2 : "small", 3: "tiny"}
         if "png_originals" in transformation_dictionary:

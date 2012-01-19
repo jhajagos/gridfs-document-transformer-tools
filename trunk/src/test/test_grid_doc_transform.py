@@ -13,6 +13,7 @@ import mimetypes
 from pymongo import Connection
 from gridfs import GridFS
 import os
+import pprint
 
 def connect_to_local_server():
     try:
@@ -59,7 +60,9 @@ class BasicGridFSManipulation(unittest.TestCase):
 #        self.file_churner.process_file("6525_Page_4.png")
 
     def test_process_document_to_endpoint(self):
-        self.file_churner.process_document_to_endpoint("Sample Presentation Plain Background.pptx")
+        document_details = self.file_churner.process_document_to_endpoint("Sample Presentation Plain Background.pptx")
+        pprint.pprint(document_details)
+        self.assertTrue(document_details.has_key("txt_filename"))
 
 
 if __name__ == '__main__':
