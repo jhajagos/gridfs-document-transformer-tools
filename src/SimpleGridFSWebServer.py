@@ -21,6 +21,8 @@ def application(environ, start_response):
     uri = environ["PATH_INFO"]
     light_box_signal = "light-box-z"
     focus_signal = "in-focus-z"
+    browse_signal = "browse-z"
+    browse_on = 0
     light_box_on = 0
     focus_on = 0
     file_serve = 0
@@ -31,11 +33,30 @@ def application(environ, start_response):
     elif uri[1:len(focus_signal) + 1] == focus_signal:
         focus_on = 1
         filename = uri[len(focus_signal)+2:] + ".json"
+    elif uri[1:len(browse_signal) + 1] == browse_signal:
+        browse_on = 1
     else:
         filename = uri[1:]
         file_serve = 1
 
-    print(filename)
+    if browse_on:
+        browse_files = []
+        grid_files = gfs.list()
+        for grid_file in grid_files:
+            if grid_file[-4:] == "json":
+                browse_files.append(grid_file[:-5])
+
+        browse_files.sort()
+        content = html_header("File browser")
+        content += "<body>"
+        content += "<ul>"
+        for browse_file in browse_files:
+            content += '<li><a href = "../in-focus-z/%s">%s</li>' % (browse_file,browse_file)
+
+        content += "</body></html>"
+        response_headers = [("Content-type", 'text/html')]
+        start_response("200 OK", response_headers)
+        return [str(content)]
 
     try:
         grid_out_obj = gfs.get_last_version(filename)
