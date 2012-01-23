@@ -15,7 +15,7 @@ import os
 import hashlib
 import glob
 import pprint
-from PIL import Image
+from PIL import Image, ImageFilter
 import json
 
 
@@ -208,6 +208,10 @@ class FileChurner(object):
             new_height = int(largest_size_in_pixels)
             reduction_factor = (largest_size_in_pixels * 1.0) / (height)
             new_width = int(reduction_factor * width)
+
+        if image.mode == "P" or image.mode == "1":
+            image = image.convert("L")
+        #new_image = image.filter(ImageFilter.BLUR)
         new_image = image.resize((new_width,new_height), Image.ANTIALIAS)
         new_image_name = image_file_name + "." + image_suffix + "." + image_type.lower()
         new_image.save(new_image_name, image_type)
