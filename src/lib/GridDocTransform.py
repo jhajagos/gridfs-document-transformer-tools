@@ -17,7 +17,13 @@ import glob
 import pprint
 from PIL import Image, ImageFilter
 import json
-
+import urllib
+import string
+import nltk
+import FreeTextTriples
+import pyTripleSimple
+import WordCloud
+import NER
 
 class FileChurner(object):
     def __init__(self,gridFSobj,temporary_directory,pdf_conversion_types = ["txt","tiff","png"]):
@@ -34,7 +40,8 @@ class FileChurner(object):
     def process_document_to_endpoint(self,filename):
         transformation_dictionary = {"original_filename" : filename}
         converted_type =  mimetypes.guess_type(filename)[0]
-        if converted_type in ['application/msword',"application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/x-mspowerpoint.12",'application/x-mspowerpoint']:
+        #if converted_type in ['application/msword',"application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/x-mspowerpoint.12",'application/x-mspowerpoint']:
+        if converted_type in ['application/msword']:
             filenames_written_1 = self.process_file(filename)
         else:
             filenames_written_1 = [filename]
@@ -44,40 +51,17 @@ class FileChurner(object):
                 transformation_dictionary["pdf_filename"] = filename_written_1
             if filename_written_1[-3:] == "txt":
                 transformation_dictionary["txt_filename"] = filename_written_1
+            if filename_written_1[-2:] == "nt":
+                transformation_dictionary["ft_nt_filename"] = filename_written_1
+#            if filename_written_1[-4:] == "json":
+#                transformation_dictionary["ft_tokencount_json_filename"] = filename_written_1
+            if filename_written_1[-7:] == "wc.html":
+                transformation_dictionary["ft_wc_filename"] = filename_written_1
+            if filename_written_1[-7:] == "ne.html":
+                transformation_dictionary["ft_ne_filename"] = filename_written_1                                                                
 
-            if "pdf_filename" in transformation_dictionary:
-                filenames_written_2 = self.process_file(transformation_dictionary["pdf_filename"])
-                for filename_written_2 in filenames_written_2:
-                    if filename_written_2[-3:] == "png":
-                        if "png_originals" in transformation_dictionary:
-                            transformation_dictionary["png_originals"].append(filename_written_2)
-                        else:
-                            transformation_dictionary["png_originals"] = [filename_written_2]
-                    if "png_originals" in transformation_dictionary:
-                        transformation_dictionary["png_originals"].sort()
-                    if filename_written_2[-4:] == "tiff":
-                        if "tiff_originals" in transformation_dictionary:
-                            transformation_dictionary["tiff_originals"].append(filename_written_2)
-                        else:
-                            transformation_dictionary["tiff_originals"] = [filename_written_2]
-                    if "tiff_originals" in transformation_dictionary:
-                        transformation_dictionary["tiff_originals"].sort()
 
-                    if filename_written_2[-3:] == "txt":
-                        if "txt_filename" not in transformation_dictionary:
-                            transformation_dictionary["txt_filename"] = filename_written_2
-                        transformation_dictionary["pdf_texts"] = filename_written_2
-
-        i_2_str_dict = {0: "large", 1: "medium", 2 : "small", 3: "tiny"}
-        if "png_originals" in transformation_dictionary:
-            for filename_png_original in transformation_dictionary["png_originals"]:
-                filenames_png_downsize = self.process_file(filename_png_original)
-                for i in range(len(filenames_png_downsize)):
-                    png_key_name = "png_" + i_2_str_dict[i]
-                    if png_key_name in transformation_dictionary:
-                        transformation_dictionary[png_key_name].append(filenames_png_downsize[i])
-                    else:
-                        transformation_dictionary[png_key_name] = [filenames_png_downsize[i]]
+                        
         writing_location = self._generate_writing_location(filename)
         json_file_name = filename + ".json"
         full_json_file_name = os.path.join(writing_location,json_file_name)
@@ -120,6 +104,33 @@ class FileChurner(object):
             self._upload_file(text_file_name_written, full_text_file_name_written)
             files_created.append(text_file_name_written)
             files_created.append(pdf_file_name_written)
+            
+            #@author: Som Satapathy
+            full_free_text_ntriples_file=os.path.join(writing_location,full_text_file_name_written[0:full_text_file_name_written.index(".")]+".free.text.nt")
+            full_tkCount_file=os.path.join(writing_location,full_text_file_name_written[0:full_text_file_name_written.index(".")]+".free.text.tokencount.json")
+            full_free_text_wordcloud_file=os.path.join(writing_location,full_text_file_name_written[0:full_text_file_name_written.index(".")]+".free.text.wc.html")
+            full_free_text_ne_file=os.path.join(writing_location,full_text_file_name_written[0:full_text_file_name_written.index(".")]+".free.text.ne.html")
+            
+            self._generate_context_triples(full_text_file_name_written,full_free_text_ntriples_file,full_tkCount_file)
+            self._generate_word_cloud(full_text_file_name_written,full_free_text_wordcloud_file)
+            self._generate_named_entities(full_text_file_name_written,full_free_text_ne_file)
+            
+            free_text_ntriples_file = os.path.basename(full_free_text_ntriples_file)
+            self._upload_file(free_text_ntriples_file, full_free_text_ntriples_file)
+            files_created.append(free_text_ntriples_file)
+            
+            tkCount_file = os.path.basename(full_tkCount_file)
+            self._upload_file(tkCount_file, full_tkCount_file)
+            files_created.append(tkCount_file)
+            
+            free_text_wordcloud_file = os.path.basename(full_free_text_wordcloud_file)
+            self._upload_file(free_text_wordcloud_file, full_free_text_wordcloud_file)
+            files_created.append(free_text_wordcloud_file)
+            
+            free_text_ne_file = os.path.basename(full_free_text_ne_file)
+            self._upload_file(free_text_ne_file, full_free_text_ne_file)
+            files_created.append(free_text_ne_file)
+            
 
         elif content_type == 'application/x-mspowerpoint.12' or content_type == 'application/x-mspowerpoint':
             file_name_written = self._convert_from_ppt_to_pdf(filename_to_write)
@@ -169,7 +180,8 @@ class FileChurner(object):
 
     def _convert_pdf_to_other_format(self, file_name, conversion_type):
         """Can convert a PDF file to png, tiff, and text formats"""
-        acrobat = win32.gencache.EnsureDispatch("AcroExch.App")
+        #acrobat = win32.gencache.EnsureDispatch("AcroExch.App")
+        #pdf = win32.gencache.EnsureDispatch("AcroExch.PDDoc")
         pdf = win32.gencache.EnsureDispatch("AcroExch.PDDoc")
         pdf.Open(file_name)
         JavaScriptBridge = pdf.GetJSObject()
@@ -241,7 +253,55 @@ class FileChurner(object):
             return 1
         except WindowsError:
             return 0
+        
+    def _generate_context_triples(self,file_name,free_text_ntriples_file,tkCount_file):
+            jData=dict()
+            tokens=[]
+            f=open(file_name)
+            raw=f.read()
+            predicate="http://vivoweb.org/ontology/core#freetextKeyword"
+            ntriples_file_name=free_text_ntriples_file  
+            ts = pyTripleSimple.SimpleTripleStore()
+            words = nltk.word_tokenize(raw)
+            for word in words:
+                subject="http://example.org/"+os.path.basename(f.name)
+                ts.add_triple(pyTripleSimple.SimpleTriple(subject, predicate, word, "uul"))
+                tokens.append(word)
+        
+            f_nt = open(ntriples_file_name,'w')
+            ts.export_to_ntriples_file(f_nt)
+            
+            st=set(words)
+            for w in st:
+                c=tokens.count(w)
+                jData[w]=c
+                
+            jTokenCount=json.dumps(jData)
+            data=[{'textVersion':os.path.basename(f.name),'nTriples.free.text':os.path.basename(f_nt.name),'unq.token.count':jTokenCount}]
+            json_data=json.dumps(data)
+            
+            tkCount_file_to_write=open(tkCount_file,'w')
+            tkCount_file_to_write.write(json_data)
+            tkCount_file_to_write.close()
+            
+            f.close()
+            f_nt.close()
 
+    def _generate_word_cloud(self,ft_file,wc_file):
+        f=open(ft_file)
+        raw=f.read()
+        wc = WordCloud.WordCloud()
+        wc.addWords(raw)
+        wc.cloud(wc_file)
+        f.close()
+        
+    def _generate_named_entities(self,ft_file,ne_file):
+        f=open(ft_file)
+        raw=f.read()
+        ne=NER.NER()
+        ne.generate_named_entities(raw,ne_file)
+        f.close()
+    
 
     """
 Example in iPython opening a doc file and saving it as a pdf file.
@@ -274,11 +334,11 @@ We need to edit the following file:
 C:\Python27\Lib\site-packages\win32com\client\dynamic.py
 
 ERRORS_BAD_CONTEXT = [
-	winerror.DISP_E_MEMBERNOTFOUND,
-	winerror.DISP_E_BADPARAMCOUNT,
-	winerror.DISP_E_PARAMNOTOPTIONAL,
-	winerror.DISP_E_TYPEMISMATCH,
-	winerror.E_INVALIDARG,
+        winerror.DISP_E_MEMBERNOTFOUND,
+        winerror.DISP_E_BADPARAMCOUNT,
+        winerror.DISP_E_PARAMNOTOPTIONAL,
+        winerror.DISP_E_TYPEMISMATCH,
+        winerror.E_INVALIDARG,
         winerror.E_NOTIMPL
 ]
 
