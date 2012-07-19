@@ -94,7 +94,8 @@ def application(environ, start_response):
 
             content = html_header("Focus on for '" + file_information["original_filename"] + "'")
             content += "<body>"
-            content += in_focus_html(part, file_information["png_medium"][part], file_information["png_large"][part],file_information["png_originals"][part], file_information["original_filename"], file_information["pdf_filename"], file_information["txt_filename"], len(file_information["png_originals"]))
+            #content += in_focus_html(part, file_information["png_medium"][part], file_information["png_large"][part],file_information["png_originals"][part], file_information["original_filename"], file_information["pdf_filename"], file_information["txt_filename"], len(file_information["png_originals"]))
+            content += in_focus_html(part, '', '','', file_information["original_filename"], file_information["pdf_filename"], file_information["txt_filename"], file_information["ft_wc_filename"], file_information["ft_ne_filename"], 0, gfs)
             content += "</body></html>"
 
         return [str(content),]
@@ -117,7 +118,14 @@ def open_body():
 def close_body():
     return "</body>"
 
-def in_focus_html(current_position, image_file_medium, image_file_large,image_file_name,original_file_name, pdf_file_name, text_file_name, number_of_parts):
+def in_focus_html(current_position, image_file_medium, image_file_large,image_file_name,original_file_name, pdf_file_name, text_file_name, wc_file_name, ne_file_name, number_of_parts, gfs):
+    
+    f=gfs.get_last_version(wc_file_name)
+    wc_html=f.read()
+    
+    ne_file=gfs.get_last_version(ne_file_name)
+    ne_html=ne_file.read()
+
     state = "middle"
     if current_position == 0:
         state = "start"
@@ -149,10 +157,8 @@ def in_focus_html(current_position, image_file_medium, image_file_large,image_fi
     last = "?part=%s" % (int(number_of_parts) - 1)
     html_text += '   |||   <a href="%s">First</a> | <a href="%s">Last</a> |' % (first,last)
 
-    html_text += '<div><span><a href="../%s"><img src="../%s"></a></span></div>' % (image_file_name, image_file_large)
-
-
-
+    html_text += '<div><span><a href="../%s"><img src="../%s"></a></span></div></br>' % (image_file_name, image_file_large)
+    html_text += "<div><span>Insights:"+wc_html +ne_html+"</span></div>"
     return html_text
 
 def light_box_html(image_files_list_thumb, original_file_name, n=3):
