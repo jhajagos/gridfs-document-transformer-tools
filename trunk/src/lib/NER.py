@@ -79,7 +79,6 @@ def writeNERCloud(taglist, ranges, outputfile):
     for tag in taglist:
         rangeIndex = 0
         for range in ranges:
-#            url = "http://www.google.com/search?q=" + tag[0].replace(' ', '+') + ""
             if (tag[1] >= range[0] and tag[1] <= range[1]):
                 outputf.write("<span class=\"" + rangeStyle[rangeIndex] + "\">" + tag[0] + "</a></span> ")
                 break
