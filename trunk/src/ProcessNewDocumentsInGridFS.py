@@ -12,30 +12,38 @@ def main(configuration):
     gfs = gridfs.GridFS(grid_db)
     temp_directory = configuration["temporary_directory"]
     gfs_files = gfs.list() #This will not scale
+
+    #524
+    process_files(gfs_files,gfs,temp_directory)
+
+
+
+#524
+def process_files(files,gfs,temp_directory):
     json_files = {}
-    for gfs_file in gfs_files:
-        if gfs_file[-4:] == "json":
-            json_files[gfs_file[:-5]] = 1
+    for file in files:
+        if file[-4:] == "json":
+            json_files[file[:-5]] = 1
 
     pdf_files = {}
-    for gfs_file in gfs_files:
-        if gfs_file[-3:] == "pdf":
-            pdf_files[gfs_file] = 1
+    for file in files:
+        if file[-3:] == "pdf":
+            pdf_files[file] = 1
 
     document_files_to_process = {}
-    for gfs_file in gfs_files:
-        if gfs_file[-4:][0] == ".":
-            extension = gfs_file[-3:]
-        elif gfs_file[-5:][0] == ".":
-            extension = gfs_file[-4:]
+    for file in files:
+        if file[-4:][0] == ".":
+            extension = file[-3:]
+        elif file[-5:][0] == ".":
+            extension = file[-4:]
         else:
             extension = None
         if extension:
             if extension in ["doc","docx","ppt","pptx"]:
-                if gfs_file + ".pdf" in pdf_files:
-                    pdf_files.pop(gfs_file + ".pdf")
-                if gfs_file not in json_files:
-                    document_files_to_process[gfs_file] = 1
+                if file + ".pdf" in pdf_files:
+                    pdf_files.pop(file + ".pdf")
+                if file not in json_files:
+                    document_files_to_process[file] = 1
 
     for pdf_file in pdf_files.keys():
         if pdf_file not in json_files:
@@ -45,6 +53,8 @@ def main(configuration):
     for file_name in document_files_to_process.keys():
         print("Processing file '%s'" % file_name)
         file_churner_obj.process_document_to_endpoint(file_name)
+
+
 
 if __name__ == "__main__":
     config_name = os.path.join(os.path.split(os.path.realpath(__file__))[0],"config.json")
