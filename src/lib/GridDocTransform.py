@@ -20,10 +20,12 @@ import json
 import urllib
 import string
 import nltk
-import FreeTextTriples
 import pyTripleSimple
 import WordCloud
 import NER
+import sys, traceback
+import codecs
+import time
 
 class FileChurner(object):
     def __init__(self,gridFSobj,temporary_directory,pdf_conversion_types = ["txt","tiff","png"]):
@@ -38,10 +40,13 @@ class FileChurner(object):
             self.gridFSobj.put(f, content_type = mime_type, filename = file_name)
 
     def process_document_to_endpoint(self,filename):
+        #524: clean up older version tranformation dictionary files
+        #self.clean_transformation_dictionary(filename)
+
         transformation_dictionary = {"original_filename" : filename}
         converted_type =  mimetypes.guess_type(filename)[0]
-        #if converted_type in ['application/msword',"application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/x-mspowerpoint.12",'application/x-mspowerpoint']:
-        if converted_type in ['application/msword']:
+        #if converted_type in ['application/msword']:
+        if converted_type in ['application/msword',"application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/x-mspowerpoint.12",'application/x-mspowerpoint']:
             filenames_written_1 = self.process_file(filename)
         else:
             filenames_written_1 = [filename]
@@ -53,15 +58,47 @@ class FileChurner(object):
                 transformation_dictionary["txt_filename"] = filename_written_1
             if filename_written_1[-2:] == "nt":
                 transformation_dictionary["ft_nt_filename"] = filename_written_1
-#            if filename_written_1[-4:] == "json":
-#                transformation_dictionary["ft_tokencount_json_filename"] = filename_written_1
             if filename_written_1[-7:] == "wc.html":
                 transformation_dictionary["ft_wc_filename"] = filename_written_1
             if filename_written_1[-7:] == "ne.html":
-                transformation_dictionary["ft_ne_filename"] = filename_written_1                                                                
+                transformation_dictionary["ft_ne_filename"] = filename_written_1
+
+            if "pdf_filename" in transformation_dictionary:
+                filenames_written_2 = self.process_file(transformation_dictionary["pdf_filename"])
+                for filename_written_2 in filenames_written_2:
+                    if filename_written_2[-3:] == "png":
+                        if "png_originals" in transformation_dictionary:
+                            transformation_dictionary["png_originals"].append(filename_written_2)
+                        else:
+                            transformation_dictionary["png_originals"] = [filename_written_2]
+                    if "png_originals" in transformation_dictionary:
+                        transformation_dictionary["png_originals"].sort()
+                    if filename_written_2[-4:] == "tiff":
+                        if "tiff_originals" in transformation_dictionary:
+                            transformation_dictionary["tiff_originals"].append(filename_written_2)
+                        else:
+                            transformation_dictionary["tiff_originals"] = [filename_written_2]
+                    if "tiff_originals" in transformation_dictionary:
+                        transformation_dictionary["tiff_originals"].sort()
+
+                    if filename_written_2[-3:] == "txt":
+                        if "txt_filename" not in transformation_dictionary:
+                            transformation_dictionary["txt_filename"] = filename_written_2
+                        transformation_dictionary["pdf_texts"] = filename_written_2
+
+        i_2_str_dict = {0: "large", 1: "medium", 2 : "small", 3: "tiny"}
+        if "png_originals" in transformation_dictionary:
+            for filename_png_original in transformation_dictionary["png_originals"]:
+                filenames_png_downsize = self.process_file(filename_png_original)
+                for i in range(len(filenames_png_downsize)):
+                    png_key_name = "png_" + i_2_str_dict[i]
+                    if png_key_name in transformation_dictionary:
+                        transformation_dictionary[png_key_name].append(filenames_png_downsize[i])
+                    else:
+                        transformation_dictionary[png_key_name] = [filenames_png_downsize[i]]
 
 
-                        
+
         writing_location = self._generate_writing_location(filename)
         json_file_name = filename + ".json"
         full_json_file_name = os.path.join(writing_location,json_file_name)
@@ -70,7 +107,97 @@ class FileChurner(object):
         f.write(transformation_dictionary_json)
         f.close()
         self._upload_file(json_file_name,full_json_file_name)
+
+        #524: Add transformation dictionary json as a mongo document property
+        f = self.gridFSobj.get_version(filename=filename, version=-1)
+        mime_type_file_name = mimetypes.guess_type(filename)[0]
+        ts = time.time()
+        self.gridFSobj.put(f, content_type = mime_type_file_name, filename = filename, time_stamp = ts, transformation_dictionary_json = json_file_name)
+        self.gridFSobj.delete(f._id)
+
         return transformation_dictionary
+
+    #524
+    def clean_transformation_dictionary(self,filename):
+        if(self.gridFSobj.exists(filename=filename+".json")):
+            f = self.gridFSobj.get_last_version(filename+".json")
+            json_file_id = f._id
+            #content = f.read()
+            json_content = json.load(f)
+
+            l = json_content.get("png_large")
+            if(l):
+                for k in l:
+                    if(self.gridFSobj.exists(filename=k)):
+                        f = self.gridFSobj.get_last_version(k)
+                        self.gridFSobj.delete(f._id)
+
+            l = json_content.get("png_medium")
+            if(l):
+                for k in l:
+                    if(self.gridFSobj.exists(filename=k)):
+                        f = self.gridFSobj.get_last_version(k)
+                        self.gridFSobj.delete(f._id)
+
+            l = json_content.get("png_small")
+            if(l):
+                for k in l:
+                    if(self.gridFSobj.exists(filename=k)):
+                        f = self.gridFSobj.get_last_version(k)
+                        self.gridFSobj.delete(f._id)
+
+            l = json_content.get("png_originals")
+            if(l):
+                for k in l:
+                    if(self.gridFSobj.exists(filename=k)):
+                        f = self.gridFSobj.get_last_version(k)
+                        self.gridFSobj.delete(f._id)
+
+            l = json_content.get("tiff_originals")
+            if(l):
+                for k in l:
+                    if(self.gridFSobj.exists(filename=k)):
+                        f = self.gridFSobj.get_last_version(k)
+                        self.gridFSobj.delete(f._id)
+
+            k = json_content.get("txt_filename")
+            if(k):
+                if(self.gridFSobj.exists(filename=k)):
+                    f = self.gridFSobj.get_last_version(k)
+                    self.gridFSobj.delete(f._id)
+
+            k = json_content.get("pdf_filename")
+            if(k):
+                if(self.gridFSobj.exists(filename=k)):
+                    f = self.gridFSobj.get_last_version(k)
+                    self.gridFSobj.delete(f._id)
+
+            k = json_content.get("pdf_texts")
+            if(k):
+                if(self.gridFSobj.exists(filename=k)):
+                    f = self.gridFSobj.get_last_version(k)
+                    self.gridFSobj.delete(f._id)
+
+            k = json_content.get("ft_nt_filename")
+            if(k):
+                if(self.gridFSobj.exists(filename=k)):
+                    f = self.gridFSobj.get_last_version(k)
+                    self.gridFSobj.delete(f._id)
+
+            k = json_content.get("ft_wc_filename")
+            if(k):
+                if(self.gridFSobj.exists(filename=k)):
+                    f = self.gridFSobj.get_last_version(k)
+                    self.gridFSobj.delete(f._id)
+
+            k = json_content.get("ft_ne_filename")
+            if(k):
+                if(self.gridFSobj.exists(filename=k)):
+                    f = self.gridFSobj.get_last_version(k)
+                    self.gridFSobj.delete(f._id)
+
+            self.gridFSobj.delete(json_file_id)
+
 
     def _generate_writing_location(self,filename):
         hashed_filename = hashlib.sha1(filename).hexdigest()
@@ -104,32 +231,7 @@ class FileChurner(object):
             self._upload_file(text_file_name_written, full_text_file_name_written)
             files_created.append(text_file_name_written)
             files_created.append(pdf_file_name_written)
-            
-            #@author: Som Satapathy
-            full_free_text_ntriples_file=os.path.join(writing_location,full_text_file_name_written[0:full_text_file_name_written.index(".")]+".free.text.nt")
-            full_tkCount_file=os.path.join(writing_location,full_text_file_name_written[0:full_text_file_name_written.index(".")]+".free.text.tokencount.json")
-            full_free_text_wordcloud_file=os.path.join(writing_location,full_text_file_name_written[0:full_text_file_name_written.index(".")]+".free.text.wc.html")
-            full_free_text_ne_file=os.path.join(writing_location,full_text_file_name_written[0:full_text_file_name_written.index(".")]+".free.text.ne.html")
-            
-            self._generate_context_triples(full_text_file_name_written,full_free_text_ntriples_file,full_tkCount_file)
-            self._generate_word_cloud(full_text_file_name_written,full_free_text_wordcloud_file)
-            self._generate_named_entities(full_text_file_name_written,full_free_text_ne_file)
-            
-            free_text_ntriples_file = os.path.basename(full_free_text_ntriples_file)
-            self._upload_file(free_text_ntriples_file, full_free_text_ntriples_file)
-            files_created.append(free_text_ntriples_file)
-            
-            tkCount_file = os.path.basename(full_tkCount_file)
-            self._upload_file(tkCount_file, full_tkCount_file)
-            files_created.append(tkCount_file)
-            
-            free_text_wordcloud_file = os.path.basename(full_free_text_wordcloud_file)
-            self._upload_file(free_text_wordcloud_file, full_free_text_wordcloud_file)
-            files_created.append(free_text_wordcloud_file)
-            
-            free_text_ne_file = os.path.basename(full_free_text_ne_file)
-            self._upload_file(free_text_ne_file, full_free_text_ne_file)
-            files_created.append(free_text_ne_file)
+            self.discover_entities(writing_location,full_text_file_name_written,files_created)
             
 
         elif content_type == 'application/x-mspowerpoint.12' or content_type == 'application/x-mspowerpoint':
@@ -142,7 +244,7 @@ class FileChurner(object):
         elif content_type == "application/pdf":
             for conversion_type in self.pdf_conversion_types:
 
-                file_name_pairs = self._convert_pdf_to_other_format(filename_to_write, conversion_type)
+                file_name_pairs = self._convert_pdf_to_other_format(filename_to_write, conversion_type, writing_location, files_created)
                 for file_name_pair in file_name_pairs:
                     converted_file_name_written = file_name_pair[0]
                     self._upload_file(converted_file_name_written, file_name_pair[1])
@@ -156,6 +258,30 @@ class FileChurner(object):
                 self._upload_file(converted_file_name_written,new_root_file_name)
                 files_created.append(converted_file_name_written)
         return files_created
+
+
+    #@author: Som Satapathy
+    def discover_entities(self,writing_location,full_text_file_name_written,files_created):
+        full_free_text_ntriples_file=os.path.join(writing_location,full_text_file_name_written[0:full_text_file_name_written.index(".")]+".free.text.nt")
+        full_tkCount_file=os.path.join(writing_location,full_text_file_name_written[0:full_text_file_name_written.index(".")]+".free.text.tokencount.json")
+        full_free_text_wordcloud_file=os.path.join(writing_location,full_text_file_name_written[0:full_text_file_name_written.index(".")]+".free.text.wc.html")
+        full_free_text_ne_file=os.path.join(writing_location,full_text_file_name_written[0:full_text_file_name_written.index(".")]+".free.text.ne.html")
+
+        self._generate_context_triples(full_text_file_name_written,full_free_text_ntriples_file,full_tkCount_file)
+        self._generate_word_cloud(full_text_file_name_written,full_free_text_wordcloud_file)
+        self._generate_named_entities(full_text_file_name_written,full_free_text_ne_file)
+
+        free_text_ntriples_file = os.path.basename(full_free_text_ntriples_file)
+        self._upload_file(free_text_ntriples_file, full_free_text_ntriples_file)
+        files_created.append(free_text_ntriples_file)
+
+        free_text_wordcloud_file = os.path.basename(full_free_text_wordcloud_file)
+        self._upload_file(free_text_wordcloud_file, full_free_text_wordcloud_file)
+        files_created.append(free_text_wordcloud_file)
+
+        free_text_ne_file = os.path.basename(full_free_text_ne_file)
+        self._upload_file(free_text_ne_file, full_free_text_ne_file)
+        files_created.append(free_text_ne_file)
 
 
     #TODO: Cleanup and protect from COM object dysfunction
@@ -178,23 +304,31 @@ class FileChurner(object):
         powerpoint.Quit()
         return converted_file_name
 
-    def _convert_pdf_to_other_format(self, file_name, conversion_type):
+    def _convert_pdf_to_other_format(self, file_name, conversion_type, writing_location, files_created):
         """Can convert a PDF file to png, tiff, and text formats"""
         #acrobat = win32.gencache.EnsureDispatch("AcroExch.App")
         #pdf = win32.gencache.EnsureDispatch("AcroExch.PDDoc")
-        pdf = win32.gencache.EnsureDispatch("AcroExch.PDDoc")
-        pdf.Open(file_name)
-        JavaScriptBridge = pdf.GetJSObject()
+        try:
+            win32.gencache.EnsureModule('{FF76CB60-2E68-101B-B02E-04021C009402}', 0, 1, 1)
+            pdf = win32.gencache.EnsureDispatch("AcroExch.PDDoc")
+            pdf.Open(file_name)
+            JavaScriptBridge = pdf.GetJSObject()
 
-        if conversion_type == "png":
-            conversion_format = "com.adobe.acrobat.png"
-        elif conversion_type == "tiff":
-            conversion_format = "com.adobe.acrobat.tiff"
-        elif conversion_type == "txt":
-            conversion_format = "com.adobe.acrobat.plain-text"
+            if conversion_type == "png":
+                conversion_format = "com.adobe.acrobat.png"
+            elif conversion_type == "tiff":
+                conversion_format = "com.adobe.acrobat.tiff"
+            elif conversion_type == "txt":
+                conversion_format = "com.adobe.acrobat.plain-text"
 
-        converted_file_name =  file_name + "." + conversion_type
-        JavaScriptBridge.saveAs(converted_file_name,conversion_format)
+            converted_file_name =  file_name + "." + conversion_type
+            JavaScriptBridge.saveAs(converted_file_name,conversion_format)
+
+            #524
+            if conversion_type == "txt":
+                self.discover_entities(writing_location,converted_file_name,files_created)
+        except:
+            traceback.print_exc()
 
         base_directory_name = os.path.split(converted_file_name)[0]
 
@@ -234,9 +368,9 @@ class FileChurner(object):
 
         cleaned_file_name = os.path.basename(file_name)
         parsed_file_name = cleaned_file_name.split("_Page_")
-        reformatted_file_name = parsed_file_name[0] + "." + parsed_file_name[1]
-
-        return reformatted_file_name
+        if(len(parsed_file_name)>1):
+            reformatted_file_name = parsed_file_name[0] + "." + parsed_file_name[1]
+            return reformatted_file_name
 
     def process_all_files(self):
         file_names = self.gridFSobj.list()
@@ -258,24 +392,36 @@ class FileChurner(object):
             jData=dict()
             tokens=[]
             f=open(file_name)
+            #encoding = open(file_name).encoding
+            #f=codecs.open(file_name,'r',encoding=encoding)
             raw=f.read()
+            #raw.decode("UTF-8")
             predicate="http://vivoweb.org/ontology/core#freetextKeyword"
             ntriples_file_name=free_text_ntriples_file  
             ts = pyTripleSimple.SimpleTripleStore()
             words = nltk.word_tokenize(raw)
             for word in words:
-                subject="http://example.org/"+os.path.basename(f.name)
-                ts.add_triple(pyTripleSimple.SimpleTriple(subject, predicate, word, "uul"))
-                tokens.append(word)
+                try:
+                    word.decode('utf-8')
+                    subject="http://example.org/"+os.path.basename(f.name)
+                    ts.add_triple(pyTripleSimple.SimpleTriple(subject, predicate, word, "uul"))
+                    tokens.append(word)
+                except :
+                    continue
         
             f_nt = open(ntriples_file_name,'w')
             ts.export_to_ntriples_file(f_nt)
             
             st=set(words)
             for w in st:
-                c=tokens.count(w)
-                jData[w]=c
-                
+                try:
+                    w.decode('utf-8')
+                    c=tokens.count(w)
+                    jData[w]=c
+                except :
+                    continue
+
+            #print repr(jData)
             jTokenCount=json.dumps(jData)
             data=[{'textVersion':os.path.basename(f.name),'nTriples.free.text':os.path.basename(f_nt.name),'unq.token.count':jTokenCount}]
             json_data=json.dumps(data)
