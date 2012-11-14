@@ -51,7 +51,7 @@ def application(environ, start_response):
         content += "<body>"
         content += "<ul>"
         for browse_file in browse_files:
-            content += '<li><a href = "../in-focus-z/%s">%s</li>' % (browse_file,browse_file)
+            content = generate_browse_content(browse_file, gfs, browse_file[0:browse_file.index(".")]+".free.text.wc.html", browse_file[0:browse_file.index(".")]+".free.text.ne.html", content)
 
         content += "</body></html>"
         response_headers = [("Content-type", 'text/html')]
@@ -94,11 +94,27 @@ def application(environ, start_response):
 
             content = html_header("Focus on for '" + file_information["original_filename"] + "'")
             content += "<body>"
-            #content += in_focus_html(part, file_information["png_medium"][part], file_information["png_large"][part],file_information["png_originals"][part], file_information["original_filename"], file_information["pdf_filename"], file_information["txt_filename"], len(file_information["png_originals"]))
-            content += in_focus_html(part, '', '','', file_information["original_filename"], file_information["pdf_filename"], file_information["txt_filename"], file_information["ft_wc_filename"], file_information["ft_ne_filename"], 0, gfs)
+            content += in_focus_html(part, file_information["png_medium"][part], file_information["png_large"][part],file_information["png_originals"][part], file_information["original_filename"], file_information["pdf_filename"], file_information["txt_filename"], len(file_information["png_originals"]))
+            #content += in_focus_html(part, file_information["png_medium"][part], file_information["png_large"][part],file_information["png_originals"][part], file_information["original_filename"], file_information["pdf_filename"], file_information["txt_filename"], file_information["ft_wc_filename"], file_information["ft_ne_filename"], len(file_information["png_originals"]), gfs)
+            #content += in_focus_html(part, '','','', file_information["original_filename"], file_information["pdf_filename"], file_information["txt_filename"], file_information["ft_wc_filename"], file_information["ft_ne_filename"], len(file_information["png_originals"]), gfs)
             content += "</body></html>"
 
         return [str(content),]
+
+#524
+def generate_browse_content(browse_file, gfs, ft_wc_filename, ft_ne_filename, content):
+    print ft_wc_filename
+    print ft_ne_filename
+    wc_file=gfs.get_last_version(ft_wc_filename)
+    wc_html=wc_file.read()
+
+    ne_file=gfs.get_last_version(ft_ne_filename)
+    ne_html=ne_file.read()
+
+    content += '<li><a href = "../in-focus-z/%s">%s</li>' % (browse_file,browse_file)
+    content += "<div><span>Insights:"+wc_html.decode('utf8','ignore') +ne_html.decode('utf8','ignore')+"</span></div>"
+
+    return content
 
 def html_header(title):
     return """
@@ -118,13 +134,14 @@ def open_body():
 def close_body():
     return "</body>"
 
-def in_focus_html(current_position, image_file_medium, image_file_large,image_file_name,original_file_name, pdf_file_name, text_file_name, wc_file_name, ne_file_name, number_of_parts, gfs):
-    
-    f=gfs.get_last_version(wc_file_name)
+#def in_focus_html(current_position, image_file_medium, image_file_large,image_file_name,original_file_name, pdf_file_name, text_file_name, wc_file_name, ne_file_name, number_of_parts, gfs):
+def in_focus_html(current_position, image_file_medium, image_file_large,image_file_name,original_file_name, pdf_file_name, text_file_name, number_of_parts):
+
+    '''f=gfs.get_last_version(wc_file_name)
     wc_html=f.read()
     
     ne_file=gfs.get_last_version(ne_file_name)
-    ne_html=ne_file.read()
+    ne_html=ne_file.read()'''
 
     state = "middle"
     if current_position == 0:
@@ -158,7 +175,7 @@ def in_focus_html(current_position, image_file_medium, image_file_large,image_fi
     html_text += '   |||   <a href="%s">First</a> | <a href="%s">Last</a> |' % (first,last)
 
     html_text += '<div><span><a href="../%s"><img src="../%s"></a></span></div></br>' % (image_file_name, image_file_large)
-    html_text += "<div><span>Insights:"+wc_html +ne_html+"</span></div>"
+    #html_text += "<div><span>Insights:"+wc_html +ne_html+"</span></div>"
     return html_text
 
 def light_box_html(image_files_list_thumb, original_file_name, n=3):
