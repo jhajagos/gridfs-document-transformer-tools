@@ -33,6 +33,7 @@ class FileChurner(object):
         self.temporary_directory = temporary_directory
         self.pdf_conversion_types = pdf_conversion_types
         self.conversion_sizes = {"large" : 1000, "medium" : 750, "small" : 500, "tiny" : 250}
+        self.discover_entities_done = False
 
     def _upload_file(self,file_name,file_name_location):
         mime_type = mimetypes.guess_type(file_name)[0]
@@ -40,84 +41,97 @@ class FileChurner(object):
             self.gridFSobj.put(f, content_type = mime_type, filename = file_name)
 
     def process_document_to_endpoint(self,filename):
-        #524: clean up older version tranformation dictionary files
+        #clean up older version tranformation dictionary files
         #self.clean_transformation_dictionary(filename)
-
+        start_time = time.time()
+        pdf_done = False
+        self.discover_entities_done = False
         transformation_dictionary = {"original_filename" : filename}
-        converted_type =  mimetypes.guess_type(filename)[0]
-        #if converted_type in ['application/msword']:
-        if converted_type in ['application/msword',"application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/x-mspowerpoint.12",'application/x-mspowerpoint']:
-            filenames_written_1 = self.process_file(filename)
-        else:
-            filenames_written_1 = [filename]
 
-        for filename_written_1 in filenames_written_1:
-            if filename_written_1[-3:] == "pdf":
-                transformation_dictionary["pdf_filename"] = filename_written_1
-            if filename_written_1[-3:] == "txt":
-                transformation_dictionary["txt_filename"] = filename_written_1
-            if filename_written_1[-2:] == "nt":
-                transformation_dictionary["ft_nt_filename"] = filename_written_1
-            if filename_written_1[-7:] == "wc.html":
-                transformation_dictionary["ft_wc_filename"] = filename_written_1
-            if filename_written_1[-7:] == "ne.html":
-                transformation_dictionary["ft_ne_filename"] = filename_written_1
+        try:
+            converted_type =  mimetypes.guess_type(filename)[0]
+            #if converted_type in ['application/msword']:
+            if converted_type in ['application/msword',"application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/x-mspowerpoint.12",'application/x-mspowerpoint']:
+                filenames_written_1 = self.process_file(filename)
+            else:
+                filenames_written_1 = [filename]
 
-            if "pdf_filename" in transformation_dictionary:
-                filenames_written_2 = self.process_file(transformation_dictionary["pdf_filename"])
-                for filename_written_2 in filenames_written_2:
-                    if filename_written_2[-3:] == "png":
+
+            for filename_written_1 in filenames_written_1:
+                if filename_written_1[-3:] == "pdf":
+                    transformation_dictionary["pdf_filename"] = filename_written_1
+                if filename_written_1[-3:] == "txt":
+                    transformation_dictionary["txt_filename"] = filename_written_1
+                if filename_written_1[-2:] == "nt":
+                    transformation_dictionary["ft_nt_filename"] = filename_written_1
+                if filename_written_1[-7:] == "wc.html":
+                    transformation_dictionary["ft_wc_filename"] = filename_written_1
+                if filename_written_1[-7:] == "ne.html":
+                    transformation_dictionary["ft_ne_filename"] = filename_written_1
+
+
+                if "pdf_filename" in transformation_dictionary and pdf_done==False:
+                    filenames_written_2 = self.process_file(transformation_dictionary["pdf_filename"])
+                    for filename_written_2 in filenames_written_2:
+                        if filename_written_2[-3:] == "png":
+                            if "png_originals" in transformation_dictionary:
+                                transformation_dictionary["png_originals"].append(filename_written_2)
+                            else:
+                                transformation_dictionary["png_originals"] = [filename_written_2]
                         if "png_originals" in transformation_dictionary:
-                            transformation_dictionary["png_originals"].append(filename_written_2)
-                        else:
-                            transformation_dictionary["png_originals"] = [filename_written_2]
-                    if "png_originals" in transformation_dictionary:
-                        transformation_dictionary["png_originals"].sort()
-                    if filename_written_2[-4:] == "tiff":
+                            transformation_dictionary["png_originals"].sort()
+                        if filename_written_2[-4:] == "tiff":
+                            if "tiff_originals" in transformation_dictionary:
+                                transformation_dictionary["tiff_originals"].append(filename_written_2)
+                            else:
+                                transformation_dictionary["tiff_originals"] = [filename_written_2]
                         if "tiff_originals" in transformation_dictionary:
-                            transformation_dictionary["tiff_originals"].append(filename_written_2)
+                            transformation_dictionary["tiff_originals"].sort()
+
+                        if filename_written_2[-3:] == "txt":
+                            if "txt_filename" not in transformation_dictionary:
+                                transformation_dictionary["txt_filename"] = filename_written_2
+                            transformation_dictionary["pdf_texts"] = filename_written_2
+
+                    pdf_done = True
+
+            i_2_str_dict = {0: "large", 1: "medium", 2 : "small", 3: "tiny"}
+            if "png_originals" in transformation_dictionary:
+                for filename_png_original in transformation_dictionary["png_originals"]:
+                    filenames_png_downsize = self.process_file(filename_png_original)
+                    for i in range(len(filenames_png_downsize)):
+                        png_key_name = "png_" + i_2_str_dict[i]
+                        if png_key_name in transformation_dictionary:
+                            transformation_dictionary[png_key_name].append(filenames_png_downsize[i])
                         else:
-                            transformation_dictionary["tiff_originals"] = [filename_written_2]
-                    if "tiff_originals" in transformation_dictionary:
-                        transformation_dictionary["tiff_originals"].sort()
-
-                    if filename_written_2[-3:] == "txt":
-                        if "txt_filename" not in transformation_dictionary:
-                            transformation_dictionary["txt_filename"] = filename_written_2
-                        transformation_dictionary["pdf_texts"] = filename_written_2
-
-        i_2_str_dict = {0: "large", 1: "medium", 2 : "small", 3: "tiny"}
-        if "png_originals" in transformation_dictionary:
-            for filename_png_original in transformation_dictionary["png_originals"]:
-                filenames_png_downsize = self.process_file(filename_png_original)
-                for i in range(len(filenames_png_downsize)):
-                    png_key_name = "png_" + i_2_str_dict[i]
-                    if png_key_name in transformation_dictionary:
-                        transformation_dictionary[png_key_name].append(filenames_png_downsize[i])
-                    else:
-                        transformation_dictionary[png_key_name] = [filenames_png_downsize[i]]
+                            transformation_dictionary[png_key_name] = [filenames_png_downsize[i]]
 
 
 
-        writing_location = self._generate_writing_location(filename)
-        json_file_name = filename + ".json"
-        full_json_file_name = os.path.join(writing_location,json_file_name)
-        f = open(full_json_file_name,"w")
-        transformation_dictionary_json = json.dumps(transformation_dictionary)
-        f.write(transformation_dictionary_json)
-        f.close()
-        self._upload_file(json_file_name,full_json_file_name)
+            writing_location = self._generate_writing_location(filename)
+            json_file_name = filename + ".json"
+            full_json_file_name = os.path.join(writing_location,json_file_name)
+            f = open(full_json_file_name,"w")
+            transformation_dictionary_json = json.dumps(transformation_dictionary)
+            f.write(transformation_dictionary_json)
+            f.close()
+            self._upload_file(json_file_name,full_json_file_name)
 
-        #524: Add transformation dictionary json as a mongo document property
-        f = self.gridFSobj.get_version(filename=filename, version=-1)
-        mime_type_file_name = mimetypes.guess_type(filename)[0]
-        ts = time.time()
-        self.gridFSobj.put(f, content_type = mime_type_file_name, filename = filename, time_stamp = ts, transformation_dictionary_json = json_file_name)
-        self.gridFSobj.delete(f._id)
+            #Add transformation dictionary json as a mongo document property
+            f = self.gridFSobj.get_version(filename=filename, version=-1)
+            mime_type_file_name = mimetypes.guess_type(filename)[0]
+            ts = time.time()
+            self.gridFSobj.put(f, content_type = mime_type_file_name, filename = filename, time_stamp = ts, transformation_dictionary_json = json_file_name)
+            self.gridFSobj.delete(f._id)
 
+        except:
+            print "Error processing document to end point: ", filename
+
+        end_time = time.time()
+        print "Total processing time = ", end_time-start_time
         return transformation_dictionary
 
-    #524
+    #Clear transformations
     def clean_transformation_dictionary(self,filename):
         if(self.gridFSobj.exists(filename=filename+".json")):
             f = self.gridFSobj.get_last_version(filename+".json")
@@ -231,8 +245,10 @@ class FileChurner(object):
             self._upload_file(text_file_name_written, full_text_file_name_written)
             files_created.append(text_file_name_written)
             files_created.append(pdf_file_name_written)
-            self.discover_entities(writing_location,full_text_file_name_written,files_created)
-            
+            if self.discover_entities_done==False:
+                self.discover_entities(writing_location,full_text_file_name_written,files_created)
+                self.discover_entities_done = True
+
 
         elif content_type == 'application/x-mspowerpoint.12' or content_type == 'application/x-mspowerpoint':
             file_name_written = self._convert_from_ppt_to_pdf(filename_to_write)
@@ -250,6 +266,7 @@ class FileChurner(object):
                     self._upload_file(converted_file_name_written, file_name_pair[1])
                     files_created.append(converted_file_name_written)
 
+
         elif content_type == "image/x-png":
             for conversion_size_name in self.conversion_sizes.keys():
                 conversion_size = self.conversion_sizes[conversion_size_name]
@@ -262,6 +279,7 @@ class FileChurner(object):
 
     #@author: Som Satapathy
     def discover_entities(self,writing_location,full_text_file_name_written,files_created):
+        de_start_time = time.time()
         full_free_text_ntriples_file=os.path.join(writing_location,full_text_file_name_written[0:full_text_file_name_written.index(".")]+".free.text.nt")
         full_tkCount_file=os.path.join(writing_location,full_text_file_name_written[0:full_text_file_name_written.index(".")]+".free.text.tokencount.json")
         full_free_text_wordcloud_file=os.path.join(writing_location,full_text_file_name_written[0:full_text_file_name_written.index(".")]+".free.text.wc.html")
@@ -282,6 +300,9 @@ class FileChurner(object):
         free_text_ne_file = os.path.basename(full_free_text_ne_file)
         self._upload_file(free_text_ne_file, full_free_text_ne_file)
         files_created.append(free_text_ne_file)
+
+        de_end_time = time.time()
+        print "Discover entities time = ", de_end_time-de_start_time
 
 
     #TODO: Cleanup and protect from COM object dysfunction
@@ -324,9 +345,10 @@ class FileChurner(object):
             converted_file_name =  file_name + "." + conversion_type
             JavaScriptBridge.saveAs(converted_file_name,conversion_format)
 
-            #524
-            if conversion_type == "txt":
+            #Using text to discover entities
+            if conversion_type == "txt" and self.discover_entities_done==False:
                 self.discover_entities(writing_location,converted_file_name,files_created)
+                self.discover_entities_done = True
         except:
             traceback.print_exc()
 
