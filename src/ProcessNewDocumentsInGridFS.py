@@ -13,12 +13,12 @@ def main(configuration):
     temp_directory = configuration["temporary_directory"]
     gfs_files = gfs.list() #This will not scale
 
-    #524
+    #Process files
     process_files(gfs_files,gfs,temp_directory)
 
 
 
-#524
+#This API does the document transformations, extracts n_triples, extracts top named entities, extracts word cloud
 def process_files(files,gfs,temp_directory):
     json_files = {}
     for file in files:

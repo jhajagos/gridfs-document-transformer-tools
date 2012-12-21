@@ -18,7 +18,7 @@ def main(configuration,file_names,path):
     check_file_updates(configuration,file_names,gfs)
 
 
-#524: detect modified files
+#Detect modified files
 def check_file_updates(configuration,files,gfs):
     modified_files = []
     for file in files:
@@ -40,12 +40,12 @@ def check_file_updates(configuration,files,gfs):
             mime_type_file_name = mimetypes.guess_type(file)[0]
             print("Uploading '%s'" % file)
 
-            #524: add a timestamp field - used for checking file updates
+            #Add a timestamp field - used for checking file updates
             ts = time.time()
             gfs.put(f, content_type = mime_type_file_name, filename = file_name_gridfs, time_stamp = ts)
             f.close()
 
-    #524: Call ProcessNewDocumentsInGridFS to do the churning and upload updated files into gridfs
+    #Call ProcessNewDocumentsInGridFS to do the churning and upload updated files into gridfs
     if(len(modified_files)>0):
         ProcessNewDocumentsInGridFS.process_files(modified_files,gfs,configuration["temporary_directory"])
     else:
@@ -58,6 +58,7 @@ if __name__ == "__main__":
     f = open(config_name)
     config_json = f.read()
     config = json.loads(config_json)
+    #path = 'C:/5234/Data/FiS/Cbase/faculty/uploads'
     path = 'C:/Users/janos/workspace/grid-doc-transform/src/test/sampledata'
     files = os.listdir(path)
     main(config,files,path)

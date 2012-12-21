@@ -101,18 +101,24 @@ def application(environ, start_response):
 
         return [str(content),]
 
-#524
+#Browser content for prototype UI
 def generate_browse_content(browse_file, gfs, ft_wc_filename, ft_ne_filename, content):
     print ft_wc_filename
     print ft_ne_filename
-    wc_file=gfs.get_last_version(ft_wc_filename)
-    wc_html=wc_file.read()
+    wc_html = "";
+    ne_html = "";
+    if(gfs.exists(filename=ft_wc_filename)):
+        wc_file=gfs.get_last_version(ft_wc_filename)
+        wc_html=wc_file.read()
 
-    ne_file=gfs.get_last_version(ft_ne_filename)
-    ne_html=ne_file.read()
+    if(gfs.exists(filename=ft_ne_filename)):
+        ne_file=gfs.get_last_version(ft_ne_filename)
+        ne_html=ne_file.read()
 
-    content += '<li><a href = "../in-focus-z/%s">%s</li>' % (browse_file,browse_file)
-    content += "<div><span>Insights:"+wc_html.decode('utf8','ignore') +ne_html.decode('utf8','ignore')+"</span></div>"
+    content += '<li><a href = "../in-focus-z/%s">%s</a></li>' %(browse_file,browse_file)
+    if((not (wc_html is "")) and (not (ne_html is ""))):
+        content += "<div>"
+        content += "<span>Insights:"+wc_html.decode('utf8','ignore') +ne_html.decode('utf8','ignore')+"</span></div>"
 
     return content
 
