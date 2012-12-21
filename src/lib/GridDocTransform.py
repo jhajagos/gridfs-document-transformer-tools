@@ -128,7 +128,7 @@ class FileChurner(object):
             print "Error processing document to end point: ", filename
 
         end_time = time.time()
-        print "Total processing time = ", end_time-start_time
+        #print "Total processing time = ", end_time-start_time
         return transformation_dictionary
 
     #Clear transformations
@@ -302,7 +302,7 @@ class FileChurner(object):
         files_created.append(free_text_ne_file)
 
         de_end_time = time.time()
-        print "Discover entities time = ", de_end_time-de_start_time
+        #print "Discover entities time = ", de_end_time-de_start_time
 
 
     #TODO: Cleanup and protect from COM object dysfunction
