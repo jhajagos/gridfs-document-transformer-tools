@@ -59,6 +59,7 @@ if __name__ == "__main__":
     config_json = f.read()
     config = json.loads(config_json)
     #path = 'C:/5234/Data/FiS/Cbase/faculty/uploads'
-    path = 'C:/Users/janos/workspace/grid-doc-transform/src/test/sampledata'
+    path = "C:\\files\\FIS\\"
+    #fis
     files = os.listdir(path)
     main(config,files,path)
