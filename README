@@ -1,0 +1,11 @@
+Python requirement
+    2.7 windows 32 bit
+    nltk
+    pymongo
+    numpy
+    win32
+Software requirement
+
+run
+    import nltk
+    nltk.download()

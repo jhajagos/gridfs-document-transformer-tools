@@ -266,7 +266,6 @@ class FileChurner(object):
                     self._upload_file(converted_file_name_written, file_name_pair[1])
                     files_created.append(converted_file_name_written)
 
-
         elif content_type == "image/x-png":
             for conversion_size_name in self.conversion_sizes.keys():
                 conversion_size = self.conversion_sizes[conversion_size_name]

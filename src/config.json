@@ -4,6 +4,6 @@
         "server_name" : "localhost",
         "username" : "",
         "password" : "",
-        "database_name" : "test_grid_doc_transform"
+        "database_name" : "faculty_uploads"
     }
 }
