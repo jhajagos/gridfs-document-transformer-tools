@@ -1,0 +1,3 @@
+A large share of the documents in an academic environment have an origin in a format that is proprietary.  These tools are designed to extract files from a GridFS (mongodb filestore) and convert these files first to PDF then to either text or an image based format. After conversion then store these files back in a GridFS filesystem an easy to reference name structure for use by other applications.
+
+To get the best possible visual accurate conversion we rely on COM objects for the conversion process.  The program currently runs in a Windows environment and requires Microsoft Office and Adobe Acrobat Professional and the 32 bit version of Python.
